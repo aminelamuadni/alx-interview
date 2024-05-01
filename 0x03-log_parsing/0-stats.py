@@ -10,23 +10,24 @@ PEP 8 style guide (version 1.7.x) is followed.
 
 import sys
 import re
+import signal
 
 
-def extract_input(line):
+def parse_log_entry(log_line):
     """
-    Extracts sections of a line of an HTTP request log.
+    Parses a log line and extracts relevant information.
 
     Args:
-        line (str): The log line to extract information from.
+        log_line (str): The log line to parse.
 
     Returns:
-        dict: A dictionary containing the extracted information.
+        dict: A dictionary containing the parsed information.
     """
-    pattern = (
+    log_format = (
         r'(\S+) - \[(\d+\-\d+\-\d+ \d+:\d+:\d+\.\d+)\] "(\S+ \S+ \S+)" '
         r'(\d+) (\d+)'
     )
-    match = re.match(pattern, line)
+    match = re.match(log_format, log_line)
     if match:
         return {
             'status_code': match.group(4),
@@ -35,63 +36,71 @@ def extract_input(line):
     return None
 
 
-def print_statistics(total_size, status_codes):
+def display_stats(total_size, status_code_counts):
     """
-    Prints the accumulated statistics.
+    Displays the accumulated statistics.
 
     Args:
         total_size (int): The total file size.
-        status_codes (dict): A dictionary of status code counts.
+        status_code_counts (dict): A dictionary of status code counts.
     """
     print("File size: {}".format(total_size))
-    for code in sorted(status_codes):
-        count = status_codes[code]
+    for code in sorted(status_code_counts):
+        count = status_code_counts[code]
         if count > 0:
             print("{}: {}".format(code, count))
 
 
-def update_metrics(line, total_size, status_codes):
+def process_metrics(log_line, total_size, status_code_counts):
     """
-    Updates the metrics based on the extracted information from a log line.
+    Processes the metrics based on the parsed log entry.
 
     Args:
-        line (str): The log line to update metrics from.
+        log_line (str): The log line to process.
         total_size (int): The current total file size.
-        status_codes (dict): A dictionary of status code counts.
+        status_code_counts (dict): A dictionary of status code counts.
 
     Returns:
         int: The updated total file size.
     """
-    info = extract_input(line)
-    if info:
-        status_code = info['status_code']
-        file_size = info['file_size']
+    entry = parse_log_entry(log_line)
+    if entry:
+        status_code = entry['status_code']
+        file_size = entry['file_size']
         total_size += file_size
-        if status_code in status_codes:
-            status_codes[status_code] += 1
+        if status_code in status_code_counts:
+            status_code_counts[status_code] += 1
     return total_size
 
 
-def run():
+def main():
     """
-    Runs the log parsing script.
+    Main function to run the log parsing script.
     """
     total_size = 0
-    status_codes = {
+    status_code_counts = {
         '200': 0, '301': 0, '400': 0, '401': 0,
         '403': 0, '404': 0, '405': 0, '500': 0
     }
     line_count = 0
 
+    def signal_handler(signal, frame):
+        display_stats(total_size, status_code_counts)
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
     try:
-        for line in sys.stdin:
-            total_size = update_metrics(line, total_size, status_codes)
+        for log_line in sys.stdin:
+            total_size = process_metrics(
+                log_line, total_size, status_code_counts
+            )
             line_count += 1
             if line_count % 10 == 0:
-                print_statistics(total_size, status_codes)
+                display_stats(total_size, status_code_counts)
     except KeyboardInterrupt:
-        print_statistics(total_size, status_codes)
+        display_stats(total_size, status_code_counts)
 
 
 if __name__ == '__main__':
-    run()
+    main()
