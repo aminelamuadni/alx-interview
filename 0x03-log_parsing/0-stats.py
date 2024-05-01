@@ -1,82 +1,104 @@
 #!/usr/bin/python3
+"""
+Log Parsing Script
 
-"""A script for parsing HTTP request logs."""
+This script reads stdin line by line, computes metrics, and prints statistics
+every 10 lines or upon keyboard interruption (CTRL + C).
 
+PEP 8 style guide (version 1.7.x) is followed.
+"""
+
+import sys
 import re
+import signal
 
 
 def parse_log_entry(log_line):
-    """Extracts sections of a line of an HTTP request log."""
-    log_patterns = (
-        r'\s*(?P<ip>\S+)\s*',
-        r'\s*\[(?P<date>\d+\-\d+\-\d+ \d+:\d+:\d+\.\d+)\]',
-        r'\s*"(?P<request>[^"]*)"',
-        r'\s*(?P<status_code>\S+)',
-        r'\s*(?P<file_size>\d+)'
+    """
+    Parses a log line and extracts relevant information.
+
+    Args:
+        log_line (str): The log line to parse.
+
+    Returns:
+        dict: A dictionary containing the parsed information.
+    """
+    log_format = (
+        r'(\S+) - \[(\d+\-\d+\-\d+ \d+:\d+:\d+\.\d+)\] "(\S+ \S+ \S+)" '
+        r'(\d+) (\d+)'
     )
-    log_format = '{}\\-{}{}{}{}\\s*'.format(log_patterns[0], log_patterns[1],
-                                            log_patterns[2], log_patterns[3],
-                                            log_patterns[4])
-    log_match = re.fullmatch(log_format, log_line)
-    if log_match is not None:
-        entry_data = {
-            'status_code': log_match.group('status_code'),
-            'file_size': int(log_match.group('file_size')),
+    match = re.match(log_format, log_line)
+    if match:
+        return {
+            'status_code': match.group(4),
+            'file_size': int(match.group(5))
         }
-        return entry_data
+    return None
 
 
 def display_stats(total_size, status_code_counts):
-    """Prints the accumulated statistics of the HTTP request log."""
-    print('File size: {:d}'.format(total_size), flush=True)
-    for code in sorted(status_code_counts.keys()):
-        count = status_code_counts.get(code, 0)
+    """
+    Displays the accumulated statistics.
+
+    Args:
+        total_size (int): The total file size.
+        status_code_counts (dict): A dictionary of status code counts.
+    """
+    print("File size: {}".format(total_size))
+    for code in sorted(status_code_counts):
+        count = status_code_counts[code]
         if count > 0:
-            print('{:s}: {:d}'.format(code, count), flush=True)
+            print("{}: {}".format(code, count))
 
 
 def process_metrics(log_line, total_size, status_code_counts):
-    """Updates the metrics from a given HTTP request log.
+    """
+    Processes the metrics based on the parsed log entry.
 
     Args:
-        log_line (str): The line of input from which to retrieve the metrics.
+        log_line (str): The log line to process.
+        total_size (int): The current total file size.
+        status_code_counts (dict): A dictionary of status code counts.
 
     Returns:
-        int: The new total file size.
+        int: The updated total file size.
     """
-    entry_data = parse_log_entry(log_line)
-    code = entry_data.get('status_code', '0')
-    if code in status_code_counts.keys():
-        status_code_counts[code] += 1
-    return total_size + entry_data['file_size']
+    entry = parse_log_entry(log_line)
+    if entry:
+        status_code = entry['status_code']
+        file_size = entry['file_size']
+        total_size += file_size
+        if status_code in status_code_counts:
+            status_code_counts[status_code] += 1
+    return total_size
 
 
 def main():
-    """Starts the log parser."""
-    line_count = 0
+    """
+    Main function to run the log parsing script.
+    """
     total_size = 0
     status_code_counts = {
-        '200': 0,
-        '301': 0,
-        '400': 0,
-        '401': 0,
-        '403': 0,
-        '404': 0,
-        '405': 0,
-        '500': 0,
+        '200': 0, '301': 0, '400': 0, '401': 0,
+        '403': 0, '404': 0, '405': 0, '500': 0
     }
+    line_count = 0
+
+    def signal_handler(signal, frame):
+        display_stats(total_size, status_code_counts)
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
     try:
-        while True:
-            log_line = input()
+        for log_line in sys.stdin:
             total_size = process_metrics(
-                log_line,
-                total_size,
-                status_code_counts,
+                log_line, total_size, status_code_counts
             )
             line_count += 1
             if line_count % 10 == 0:
                 display_stats(total_size, status_code_counts)
-    except (KeyboardInterrupt, EOFError):
+    except KeyboardInterrupt:
         display_stats(total_size, status_code_counts)
 
 
