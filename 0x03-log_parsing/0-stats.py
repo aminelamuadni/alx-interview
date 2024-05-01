@@ -9,41 +9,40 @@ PEP 8 style guide (version 1.7.x) is followed.
 """
 
 import sys
-import signal
 import re
 
-# Define the regular expression pattern for log parsing
-LOG_PATTERN = (
-    r'(\S+) - \[(\d+\-\d+\-\d+ \d+:\d+:\d+\.\d+)\] '
-    r'"(\S+ \S+ \S+)" (\d+) (\d+)'
-)
 
-# Initialize variables
-total_size = 0
-status_codes = {
-    '200': 0, '301': 0, '400': 0, '401': 0,
-    '403': 0, '404': 0, '405': 0, '500': 0
-}
-
-
-def parse_log_line(line):
+def extract_input(line):
     """
-    Parse a log line and update metrics.
+    Extracts sections of a line of an HTTP request log.
 
     Args:
-        line (str): The log line to parse.
+        line (str): The log line to extract information from.
+
+    Returns:
+        dict: A dictionary containing the extracted information.
     """
-    global total_size
-    match = re.match(LOG_PATTERN, line)
+    pattern = (
+        r'(\S+) - \[(\d+\-\d+\-\d+ \d+:\d+:\d+\.\d+)\] "(\S+ \S+ \S+)" '
+        r'(\d+) (\d+)'
+    )
+    match = re.match(pattern, line)
     if match:
-        status_code, file_size = match.group(4), int(match.group(5))
-        total_size += file_size
-        if status_code in status_codes:
-            status_codes[status_code] += 1
+        return {
+            'status_code': match.group(4),
+            'file_size': int(match.group(5))
+        }
+    return None
 
 
-def print_statistics():
-    """Print the accumulated statistics."""
+def print_statistics(total_size, status_codes):
+    """
+    Prints the accumulated statistics.
+
+    Args:
+        total_size (int): The total file size.
+        status_codes (dict): A dictionary of status code counts.
+    """
     print("File size: {}".format(total_size))
     for code in sorted(status_codes):
         count = status_codes[code]
@@ -51,28 +50,48 @@ def print_statistics():
             print("{}: {}".format(code, count))
 
 
-def signal_handler(sig, frame):
-    """Signal handler for keyboard interruption (CTRL + C)."""
-    print_statistics()
-    sys.exit(0)
+def update_metrics(line, total_size, status_codes):
+    """
+    Updates the metrics based on the extracted information from a log line.
+
+    Args:
+        line (str): The log line to update metrics from.
+        total_size (int): The current total file size.
+        status_codes (dict): A dictionary of status code counts.
+
+    Returns:
+        int: The updated total file size.
+    """
+    info = extract_input(line)
+    if info:
+        status_code = info['status_code']
+        file_size = info['file_size']
+        total_size += file_size
+        if status_code in status_codes:
+            status_codes[status_code] += 1
+    return total_size
 
 
-def main():
-    """Main function to run the log parsing script."""
-    # Register the signal handler
-    signal.signal(signal.SIGINT, signal_handler)
-
-    # Read input from stdin line by line
+def run():
+    """
+    Runs the log parsing script.
+    """
+    total_size = 0
+    status_codes = {
+        '200': 0, '301': 0, '400': 0, '401': 0,
+        '403': 0, '404': 0, '405': 0, '500': 0
+    }
     line_count = 0
-    for line in sys.stdin:
-        parse_log_line(line)
-        line_count += 1
-        if line_count % 10 == 0:
-            print_statistics()
 
-    # Print the final statistics
-    print_statistics()
+    try:
+        for line in sys.stdin:
+            total_size = update_metrics(line, total_size, status_codes)
+            line_count += 1
+            if line_count % 10 == 0:
+                print_statistics(total_size, status_codes)
+    except KeyboardInterrupt:
+        print_statistics(total_size, status_codes)
 
 
 if __name__ == '__main__':
-    main()
+    run()
