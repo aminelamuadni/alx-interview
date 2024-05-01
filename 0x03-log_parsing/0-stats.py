@@ -1,59 +1,65 @@
 #!/usr/bin/python3
 """
-This script continuously reads from standard input, parsing formatted log
-entries. It tracks and aggregates the total size of logged data and counts
-occurrences of HTTP status codes. After every 10 lines or upon receiving a
-SIGINT (Ctrl + C), it prints these statistics.
+Script that reads log data from standard input, parses each line to extract
+metrics, and prints a summary every 10 lines or upon a keyboard interruption.
 """
 
 import sys
 import re
 import signal
 
-# Compile a regex pattern to match the expected format of log entries.
+# Compile a regex pattern to match the expected log format exactly.
 log_pattern = re.compile(
     r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) - \[(.*?)\] "GET /projects/260 '
     r'HTTP/1\.1" (\d{3}) (\d+)'
 )
 
-# Initialize variables to store the total size and count of status codes.
+# Valid status codes as a set for quick lookup.
+valid_codes = {'200', '301', '400', '401', '403', '404', '405', '500'}
+
+# Variables to hold the total size of files and count of status codes.
 total_size = 0
-status_codes = {}
+status_counts = {}
 
 
-def parse_log_line(line):
-    """Parse a log line to extract data if it matches the expected format."""
+def handle_line(line):
+    global total_size
     match = log_pattern.match(line)
     if match:
-        return match.groups()
-    return None
-
-
-def process(line):
-    """Process a log entry to update total file size and status code counts."""
-    global total_size
-    data = parse_log_line(line)
-    if data:
-        ip, date, status, size = data
-        total_size += int(size)
-        if status in status_codes:
-            status_codes[status] += 1
-        else:
-            status_codes[status] = 1
+        ip, status, size = match.groups()
+        if status in valid_codes:
+            total_size += int(size)
+            if status in status_counts:
+                status_counts[status] += 1
+            else:
+                status_counts[status] = 1
 
 
 def print_statistics():
-    """Prints aggregated statistics for file size and status codes."""
     print(f"File size: {total_size}")
-    for status in sorted(status_codes.keys()):
-        print(f"{status}: {status_codes[status]}")
+    for code in sorted(status_counts.keys()):
+        print(f"{code}: {status_counts[code]}")
 
 
-def signal_handler(sig, frame):
-    """Handle SIGINT to print statistics before terminating the program."""
+def signal_handler(signum, frame):
     print_statistics()
     sys.exit(0)
 
 
-# Set signal handler for SIGINT to ensure stats are printed on interruption.
-signal.signal(signal.SIGINT, signal_handler)
+def main():
+    signal.signal(signal.SIGINT, signal_handler)
+    line_count = 0
+    try:
+        for line in sys.stdin:
+            handle_line(line)
+            line_count += 1
+            if line_count == 10:
+                print_statistics()
+                status_counts.clear()
+                line_count = 0
+    except KeyboardInterrupt:
+        print_statistics()
+
+
+if __name__ == "__main__":
+    main()
