@@ -1,56 +1,55 @@
 #!/usr/bin/python3
 """
-Script to parse log data from standard input and compute metrics such as
-total file size and HTTP status code occurrences, printing these metrics
-every 10 lines or upon a keyboard interruption.
+This script reads standard input line by line to parse log entries,
+accumulates totals for file sizes and HTTP status codes, and prints these
+statistics after every 10 lines or upon receiving a KeyboardInterrupt.
 """
 
 import sys
 import signal
 
 
-def process_logs():
-    """
-    Processes logs from stdin, generating reports after every 10 lines and
-    upon receiving a KeyboardInterrupt.
-    """
-    line_count = 0
-    file_size = 0
-    status_codes = {}
-    valid_codes = {'200', '301', '400', '401', '403', '404', '405', '500'}
-
-    def print_report():
-        """
-        Prints the cumulative file size and the count of each status code.
-        """
-        print(f"File size: {file_size}")
-        for code in sorted(status_codes):
-            if status_codes[code] > 0:
-                print(f"{code}: {status_codes[code]}")
-
-    try:
-        for line in sys.stdin:
-            parts = line.strip().split()
-            if len(parts) >= 2 and parts[-2] in valid_codes:
-                try:
-                    size = int(parts[-1])
-                    file_size += size
-                    if parts[-2] in status_codes:
-                        status_codes[parts[-2]] += 1
-                    else:
-                        status_codes[parts[-2]] = 1
-                except ValueError:
-                    continue
-            line_count += 1
-            if line_count == 10:
-                print_report()
-                line_count = 0
-                file_size = 0
-                status_codes.clear()
-    except KeyboardInterrupt:
-        print_report()
-        sys.exit(0)
+def print_statistics(status_codes, total_size):
+    """Prints the total file size and status code frequencies."""
+    print(f"File size: {total_size}")
+    for code, count in sorted(status_codes.items()):
+        if count > 0:
+            print(f"{code}: {count}")
 
 
-if __name__ == "__main__":
-    process_logs()
+def handle_interrupt(signal, frame):
+    """Handles the SIGINT signal to print statistics before exiting."""
+    print_statistics(status_codes, total_size)
+    sys.exit(0)
+
+
+# Prepare the environment
+status_codes = {code: 0 for code in
+                ["200", "301", "400", "401", "403", "404", "405", "500"]}
+total_size = 0
+line_count = 0
+
+# Setup signal handler for graceful handling of KeyboardInterrupt
+signal.signal(signal.SIGINT, handle_interrupt)
+
+try:
+    for line in sys.stdin:
+        parts = line.strip().split()
+        # Validate and parse line
+        if len(parts) > 2 and parts[-2] in status_codes:
+            try:
+                size = int(parts[-1])
+                total_size += size
+                status_codes[parts[-2]] += 1
+                line_count += 1
+                if line_count == 10:
+                    print_statistics(status_codes, total_size)
+                    # Reset for next batch
+                    line_count = 0
+                    status_codes = {code: 0 for code in status_codes}
+            except ValueError:
+                # Ignore lines with invalid size input
+                continue
+finally:
+    # Ensure final statistics are printed even if the loop exits unexpectedly
+    print_statistics(status_codes, total_size)
