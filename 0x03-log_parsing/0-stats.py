@@ -5,37 +5,37 @@ total file size and HTTP status code occurrences, printing these metrics
 every 10 lines or upon a keyboard interruption.
 """
 
+import sys
+
 
 def process_logs():
     """
     Processes logs from stdin, generating reports after every 10 lines and
     upon receiving a KeyboardInterrupt.
     """
-    stdin = __import__('sys').stdin
     line_count = 0
     file_size = 0
-    status_codes = {}
-    valid_codes = {'200', '301', '400', '401', '403', '404', '405', '500'}
-
+    status_valid_codes = {}
+    valid_codes = ('200', '301', '400', '401', '403', '404', '405', '500')
     try:
-        for line in stdin:
-            parts = line.split()
-            try:
-                if parts[-2] in valid_codes:
-                    file_size += int(parts[-1])
-                    if parts[-2] in status_codes:
-                        status_codes[parts[-2]] += 1
-                    else:
-                        status_codes[parts[-2]] = 1
-            except (IndexError, ValueError):
-                continue
+        for line in sys.stdin:
             line_count += 1
+            line = line.split()
+            try:
+                file_size += int(line[-1])
+                if line[-2] in valid_codes:
+                    try:
+                        status_valid_codes[line[-2]] += 1
+                    except KeyError:
+                        status_valid_codes[line[-2]] = 1
+            except (IndexError, ValueError):
+                pass
             if line_count == 10:
-                print_report(file_size, status_codes)
+                print_report(file_size, status_valid_codes)
                 line_count = 0
-        print_report(file_size, status_codes)
-    except KeyboardInterrupt:
-        print_report(file_size, status_codes)
+        print_report(file_size, status_valid_codes)
+    except KeyboardInterrupt as e:
+        print_report(file_size, status_valid_codes)
         raise
 
 
