@@ -1,65 +1,53 @@
 #!/usr/bin/python3
 """
-Script that reads log data from standard input, parses each line to extract
-metrics, and prints a summary every 10 lines or upon a keyboard interruption.
+Script to parse log data from standard input and compute metrics such as
+total file size and HTTP status code occurrences, printing these metrics
+every 10 lines or upon a keyboard interruption.
 """
 
 import sys
-import re
-import signal
-
-# Compile a regex pattern to match the expected log format exactly.
-log_pattern = re.compile(
-    r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) - \[(.*?)\] "GET /projects/260 '
-    r'HTTP/1\.1" (\d{3}) (\d+)'
-)
-
-# Valid status codes as a set for quick lookup.
-valid_codes = {'200', '301', '400', '401', '403', '404', '405', '500'}
-
-# Variables to hold the total size of files and count of status codes.
-total_size = 0
-status_counts = {}
 
 
-def handle_line(line):
-    global total_size
-    match = log_pattern.match(line)
-    if match:
-        ip, status, size = match.groups()
-        if status in valid_codes:
-            total_size += int(size)
-            if status in status_counts:
-                status_counts[status] += 1
-            else:
-                status_counts[status] = 1
-
-
-def print_statistics():
-    print(f"File size: {total_size}")
-    for code in sorted(status_counts.keys()):
-        print(f"{code}: {status_counts[code]}")
-
-
-def signal_handler(signum, frame):
-    print_statistics()
-    sys.exit(0)
-
-
-def main():
-    signal.signal(signal.SIGINT, signal_handler)
+def process_logs():
+    """
+    Processes logs from stdin, generating reports after every 10 lines and
+    upon receiving a KeyboardInterrupt.
+    """
     line_count = 0
+    file_size = 0
+    status_codes = {}
+    valid_codes = {'200', '301', '400', '401', '403', '404', '405', '500'}
+
     try:
         for line in sys.stdin:
-            handle_line(line)
+            parts = line.split()
+            try:
+                if parts[-2] in valid_codes:
+                    file_size += int(parts[-1])
+                    if parts[-2] in status_codes:
+                        status_codes[parts[-2]] += 1
+                    else:
+                        status_codes[parts[-2]] = 1
+            except (IndexError, ValueError):
+                continue  # Skip malformed lines
             line_count += 1
             if line_count == 10:
-                print_statistics()
-                status_counts.clear()
+                print_report(file_size, status_codes)
                 line_count = 0
+        print_report(file_size, status_codes)  # Final report at EOF
     except KeyboardInterrupt:
-        print_statistics()
+        print_report(file_size, status_codes)
+        raise
+
+
+def print_report(file_size, status_codes):
+    """
+    Prints the cumulative file size and the count of each status code.
+    """
+    print(f"File size: {file_size}")
+    for code in sorted(status_codes):
+        print(f"{code}: {status_codes[code]}")
 
 
 if __name__ == "__main__":
-    main()
+    process_logs()
