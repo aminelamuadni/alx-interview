@@ -6,6 +6,7 @@ every 10 lines or upon a keyboard interruption.
 """
 
 import sys
+import signal
 
 
 def process_logs():
@@ -15,37 +16,40 @@ def process_logs():
     """
     line_count = 0
     file_size = 0
-    status_valid_codes = {}
-    valid_codes = ('200', '301', '400', '401', '403', '404', '405', '500')
+    status_codes = {}
+    valid_codes = {'200', '301', '400', '401', '403', '404', '405', '500'}
+
+    def print_report():
+        """
+        Prints the cumulative file size and the count of each status code.
+        """
+        print(f"File size: {file_size}")
+        for code in sorted(status_codes):
+            if status_codes[code] > 0:
+                print(f"{code}: {status_codes[code]}")
+
     try:
         for line in sys.stdin:
+            parts = line.strip().split()
+            if len(parts) >= 2 and parts[-2] in valid_codes:
+                try:
+                    size = int(parts[-1])
+                    file_size += size
+                    if parts[-2] in status_codes:
+                        status_codes[parts[-2]] += 1
+                    else:
+                        status_codes[parts[-2]] = 1
+                except ValueError:
+                    continue
             line_count += 1
-            line = line.split()
-            try:
-                file_size += int(line[-1])
-                if line[-2] in valid_codes:
-                    try:
-                        status_valid_codes[line[-2]] += 1
-                    except KeyError:
-                        status_valid_codes[line[-2]] = 1
-            except (IndexError, ValueError):
-                pass
             if line_count == 10:
-                print_report(file_size, status_valid_codes)
+                print_report()
                 line_count = 0
-        print_report(file_size, status_valid_codes)
-    except KeyboardInterrupt as e:
-        print_report(file_size, status_valid_codes)
-        raise
-
-
-def print_report(file_size, status_codes):
-    """
-    Prints the cumulative file size and the count of each status code.
-    """
-    print("File size: {}".format(file_size))
-    for code in sorted(status_codes):
-        print("{}: {}".format(code, status_codes[code]))
+                file_size = 0
+                status_codes.clear()
+    except KeyboardInterrupt:
+        print_report()
+        sys.exit(0)
 
 
 if __name__ == "__main__":
