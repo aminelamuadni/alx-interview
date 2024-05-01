@@ -29,12 +29,12 @@ def process_logs():
                     else:
                         status_codes[parts[-2]] = 1
             except (IndexError, ValueError):
-                continue  # Skip malformed lines
+                continue
             line_count += 1
             if line_count == 10:
                 print_report(file_size, status_codes)
                 line_count = 0
-        print_report(file_size, status_codes)  # Final report at EOF
+        print_report(file_size, status_codes)
     except KeyboardInterrupt:
         print_report(file_size, status_codes)
         raise
@@ -44,9 +44,9 @@ def print_report(file_size, status_codes):
     """
     Prints the cumulative file size and the count of each status code.
     """
-    print(f"File size: {file_size}")
+    print("File size: {}".format(file_size))
     for code in sorted(status_codes):
-        print(f"{code}: {status_codes[code]}")
+        print("{}: {}".format(code, status_codes[code]))
 
 
 if __name__ == "__main__":
