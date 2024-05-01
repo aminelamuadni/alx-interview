@@ -5,21 +5,20 @@ total file size and HTTP status code occurrences, printing these metrics
 every 10 lines or upon a keyboard interruption.
 """
 
-import sys
-
 
 def process_logs():
     """
     Processes logs from stdin, generating reports after every 10 lines and
     upon receiving a KeyboardInterrupt.
     """
+    stdin = __import__('sys').stdin
     line_count = 0
     file_size = 0
     status_codes = {}
     valid_codes = {'200', '301', '400', '401', '403', '404', '405', '500'}
 
     try:
-        for line in sys.stdin:
+        for line in stdin:
             parts = line.split()
             try:
                 if parts[-2] in valid_codes:
