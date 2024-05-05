@@ -1,51 +1,52 @@
 #!/usr/bin/python3
-
-"""This module reads from standard input and computes metrics."""
+"""Reads from stdin and computes metrics."""
 
 import sys
+import re
 import signal
 
+total_file_size = 0
+status_code_counts = {}
+valid_status_codes = {200, 301, 400, 401, 403, 404, 405, 500}
+line_pattern = re.compile(
+    r'(\S+) - \[(.*?)\] "GET /projects/260 HTTP/1\.1" (\d+) (\d+)'
+)
+line_count = 0
 
-def print_stats(file_size, status_codes):
-    """Prints calculated metrics in the required format."""
-    print("File size:", file_size)
-    for code in sorted(status_codes.keys()):
-        print(code, ":", status_codes[code])
+
+def print_metrics():
+    """Print metrics based on current counts."""
+    print(f"File size: {total_file_size}")
+    for code in sorted(status_code_counts):
+        print(f"{code}: {status_code_counts[code]}")
 
 
 def signal_handler(sig, frame):
-    """Handles keyboard interruption (CTRL + C)."""
-    print_stats(file_size, status_codes)
+    """Handle CTRL+C signal."""
+    print_metrics()
     sys.exit(0)
 
 
-if __name__ == "__main__":
-    file_size = 0
-    status_codes = {}
-    line_count = 0
+signal.signal(signal.SIGINT, signal_handler)
 
-    signal.signal(signal.SIGINT, signal_handler)
+for line in sys.stdin:
+    match = line_pattern.match(line)
+    if match:
+        line_count += 1
+        status_code = int(match.group(3))
+        file_size = int(match.group(4))
 
-    for line in sys.stdin:
-        parts = line.split()
-        if len(parts) != 10:
-            continue
+        # Update total file size
+        total_file_size += file_size
 
-        try:
-            status_code = int(parts[8])
-            content_size = int(parts[9])
-        except (ValueError, IndexError):
-            continue
+        # Update status code count
+        status_code_counts[status_code] = (
+            status_code_counts.get(status_code, 0) + 1
+        )
 
-        if status_code in [200, 301, 400, 401, 403, 404, 405, 500]:
-            file_size += content_size
-            status_codes[status_code] = status_codes.get(status_code, 0) + 1
+        if line_count % 10 == 0:
+            print_metrics()
 
-            line_count += 1
-            if line_count % 10 == 0:
-                print_stats(file_size, status_codes)
-
-        else:
-            continue
-
-    print_stats(file_size, status_codes)
+# Print final metrics if any lines were read
+if line_count > 0:
+    print_metrics()
