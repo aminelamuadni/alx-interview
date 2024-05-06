@@ -54,5 +54,5 @@ except KeyboardInterrupt:
     sys.exit(0)
 
 # Print final metrics if any lines were read
-if line_count > 0:
+if line_count == 0 or line_count % 10 != 0:
     print_metrics()
