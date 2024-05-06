@@ -32,31 +32,27 @@ signal.signal(signal.SIGINT, signal_handler)
 
 try:
     for line in sys.stdin:
-        try:
-            match = line_pattern.match(line)
-            if match:
-                line_count += 1
-                status_code = int(match.group(3))
-                file_size = int(match.group(4))
+        match = line_pattern.match(line)
+        if match:
+            line_count += 1
+            status_code = int(match.group(3))
+            file_size = int(match.group(4))
 
-                # Update total file size
-                total_file_size += file_size
+            # Update total file size
+            total_file_size += file_size
 
-                # Update status code count
-                status_code_counts[status_code] = (
-                    status_code_counts.get(status_code, 0) + 1
-                )
+            # Update status code count
+            status_code_counts[status_code] = (
+                status_code_counts.get(status_code, 0) + 1
+            )
 
-                if line_count % 10 == 0:
-                    print_metrics()
-        except Exception:
-            # Suppress all exceptions
-            pass
+            if line_count % 10 == 0:
+                print_metrics()
 
 except KeyboardInterrupt:
     print_metrics()
     sys.exit(0)
 
 # Print final metrics if any lines were read
-if line_count % 10 != 0 or line_count == 0:
+if line_count > 0:
     print_metrics()
