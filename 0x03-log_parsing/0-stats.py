@@ -37,13 +37,17 @@ try:
     for line in sys.stdin:
         match = line_pattern.match(line)
         if match:
-            status_code = int(match.group(3))
-            file_size = int(match.group(4))
+            try:
+                status_code = int(match.group(3))
+                file_size = int(match.group(4))
 
-            if status_code in status_code_counts:
-                total_file_size += file_size
-                status_code_counts[status_code] += 1
-                line_count += 1
+                if status_code in status_code_counts:
+                    total_file_size += file_size
+                    status_code_counts[status_code] += 1
+                    line_count += 1
+
+            except ValueError:
+                pass
 
             if line_count % 10 == 0:
                 print_metrics()
@@ -54,5 +58,5 @@ except KeyboardInterrupt:
     sys.exit(0)
 
 # Print final metrics if any lines were read
-if line_count > 0:
+if line_count % 10 != 0 or line_count == 0:
     print_metrics()
