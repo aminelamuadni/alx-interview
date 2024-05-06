@@ -18,7 +18,8 @@ def print_metrics():
     """Print metrics based on current counts."""
     print(f"File size: {total_file_size}")
     for code in sorted(status_code_counts):
-        print(f"{code}: {status_code_counts[code]}")
+        if status_code_counts[code] > 0:
+            print(f"{code}: {status_code_counts[code]}")
 
 
 def signal_handler(sig, frame):
@@ -31,22 +32,26 @@ signal.signal(signal.SIGINT, signal_handler)
 
 try:
     for line in sys.stdin:
-        match = line_pattern.match(line)
-        if match:
-            line_count += 1
-            status_code = int(match.group(3))
-            file_size = int(match.group(4))
+        try:
+            match = line_pattern.match(line)
+            if match:
+                line_count += 1
+                status_code = int(match.group(3))
+                file_size = int(match.group(4))
 
-            # Update total file size
-            total_file_size += file_size
+                # Update total file size
+                total_file_size += file_size
 
-            # Update status code count
-            status_code_counts[status_code] = (
-                status_code_counts.get(status_code, 0) + 1
-            )
+                # Update status code count
+                status_code_counts[status_code] = (
+                    status_code_counts.get(status_code, 0) + 1
+                )
 
-            if line_count % 10 == 0:
-                print_metrics()
+                if line_count % 10 == 0:
+                    print_metrics()
+        except Exception:
+            # Suppress all exceptions
+            pass
 
 except KeyboardInterrupt:
     print_metrics()
