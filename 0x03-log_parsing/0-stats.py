@@ -55,4 +55,3 @@ except KeyboardInterrupt:
 # Print final metrics if any lines were read
 if line_count > 0 and line_count % 10 != 0:
     print_metrics()
-
