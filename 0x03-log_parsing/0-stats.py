@@ -11,7 +11,8 @@ status_code_counts = {
     403: 0, 404: 0, 405: 0, 500: 0
 }
 line_pattern = re.compile(
-    r'(\S+) - \[(.*?)\] "GET /projects/260 HTTP/1\.1" (\d+) (\d+)'
+    r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) - \['
+    r'(.*?)\] "GET \/projects\/260 HTTP\/1\.1" (\d{3}) (\d+)$'
 )
 line_count = 0
 
@@ -36,24 +37,22 @@ try:
     for line in sys.stdin:
         match = line_pattern.match(line)
         if match:
-            try:
-                status_code = int(match.group(3))
-                file_size = int(match.group(4))
+            status_code = int(match.group(3))
+            file_size = int(match.group(4))
 
-                if status_code in status_code_counts:
-                    total_file_size += file_size
-                    status_code_counts[status_code] += 1
-                    line_count += 1
+            if status_code in status_code_counts:
+                total_file_size += file_size
+                status_code_counts[status_code] += 1
+                line_count += 1
 
-                    if line_count % 10 == 0:
-                        print_metrics()
-            except ValueError:
-                pass
+            if line_count % 10 == 0:
+                print_metrics()
+                line_count = 0
 
 except KeyboardInterrupt:
     print_metrics()
     sys.exit(0)
 
 # Print final metrics if any lines were read
-if line_count % 10 != 0 or line_count == 0:
+if line_count > 0:
     print_metrics()
