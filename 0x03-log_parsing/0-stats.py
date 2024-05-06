@@ -39,16 +39,16 @@ try:
             try:
                 status_code = int(match.group(3))
                 file_size = int(match.group(4))
+
+                if status_code in status_code_counts:
+                    total_file_size += file_size
+                    status_code_counts[status_code] += 1
+                    line_count += 1
+
+                    if line_count % 10 == 0:
+                        print_metrics()
             except ValueError:
-                continue
-
-            if status_code in status_code_counts:
-                total_file_size += file_size
-                status_code_counts[status_code] += 1
-                line_count += 1
-
-            if line_count % 10 == 0:
-                print_metrics()
+                pass
 
 except KeyboardInterrupt:
     print_metrics()
