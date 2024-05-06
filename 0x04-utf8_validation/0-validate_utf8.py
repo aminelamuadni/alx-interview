@@ -12,28 +12,25 @@ def validUTF8(data):
     Returns:
     - True if data is a valid UTF-8 encoding, otherwise False.
     """
-    n_bytes = 0
+    continuation_bytes = 0
 
-    for num in data:
-        # Mask to extract the least significant 8 bits
-        num &= 0xFF
+    for byte in data:
+        mask = 1 << 7
 
-        if n_bytes == 0:
-            # Get the number of leading 1s in the first byte
-            if (num >> 7) == 0:
-                n_bytes = 0
-            elif (num >> 5) == 0b110:
-                n_bytes = 1
-            elif (num >> 4) == 0b1110:
-                n_bytes = 2
-            elif (num >> 3) == 0b11110:
-                n_bytes = 3
-            else:
+        if continuation_bytes == 0:
+            while mask & byte:
+                continuation_bytes += 1
+                mask >>= 1
+
+            if continuation_bytes == 0:  # 1-byte character
+                continue
+
+            if continuation_bytes == 1 or continuation_bytes > 4:
                 return False
         else:
-            # For subsequent bytes, they should all start with 10xxxxxx
-            if (num >> 6) != 0b10:
+            if not (byte & (1 << 7)) or (byte & (1 << 6)):
                 return False
-        n_bytes -= 1
 
-    return n_bytes == 0
+        continuation_bytes -= 1
+
+    return continuation_bytes == 0
