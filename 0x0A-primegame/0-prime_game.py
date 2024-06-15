@@ -1,8 +1,10 @@
 #!/usr/bin/python3
 """
-Module for the "Prime Game" where players Maria and Ben strategically remove
-prime numbers and their multiples from a set of integers. The module calculates
-the winner across multiple game rounds.
+This module implements a game between Maria and Ben where they remove prime
+numbers and their multiples from a set of consecutive integers starting from 1
+up to n. The player unable to make a move loses. The game is played across
+multiple rounds with varying values of n, and the overall winner is the one who
+wins the most rounds.
 """
 
 
@@ -10,48 +12,42 @@ def sieve_of_eratosthenes(max_n):
     """
     Generate list of primes up to max_n using the Sieve of Eratosthenes.
     """
-    is_prime = [True] * (max_n + 1)
-    for p in range(2, int(max_n ** 0.5) + 1):
-        if is_prime[p]:
-            for i in range(p * p, max_n + 1, p):
-                is_prime[i] = False
-    return [p for p in range(2, max_n + 1) if is_prime[p]]
+    if max_n < 2:
+        return []
+    sieve = [True] * (max_n + 1)
+    sieve[0] = sieve[1] = False
+    for start in range(2, int(max_n ** 0.5) + 1):
+        if sieve[start]:
+            for i in range(start * start, max_n + 1, start):
+                sieve[i] = False
+    return [index for index, prime in enumerate(sieve) if prime]
 
 
-def simulate_round(n, primes):
+def game_winner(n, primes):
     """
-    Simulate a single round of the game for given n using precomputed primes.
+    Determine the winner of a single round given n and the list of primes.
     """
-    remaining_numbers = set(range(1, n + 1))
-    turn = 0  # 0 for Maria, 1 for Ben
-    while True:
-        move_made = False
-        for prime in primes:
-            if prime in remaining_numbers:
-                multiples = set(range(prime, n + 1, prime))
-                remaining_numbers.difference_update(multiples)
-                turn = 1 - turn
-                move_made = True
-                break
-        if not move_made:
-            break
-    return "Maria" if turn == 1 else "Ben"
+    remaining_primes = [p for p in primes if p <= n]
+    return "Maria" if len(remaining_primes) % 2 == 1 else "Ben"
 
 
 def isWinner(x, nums):
     """
-    Determine the winner after x rounds with different values of n in nums.
+    Determine who wins the most games after x rounds with different n values.
     """
+    if x <= 0 or not nums or x != len(nums):
+        return None
+
     max_n = max(nums)
     primes = sieve_of_eratosthenes(max_n)
-    results = {"Maria": 0, "Ben": 0}
-    for n in nums:
-        winner = simulate_round(n, primes)
-        results[winner] += 1
+    scores = {"Maria": 0, "Ben": 0}
 
-    if results["Maria"] > results["Ben"]:
+    for n in nums:
+        winner = game_winner(n, primes)
+        scores[winner] += 1
+
+    if scores["Maria"] > scores["Ben"]:
         return "Maria"
-    elif results["Ben"] > results["Maria"]:
+    elif scores["Ben"] > scores["Maria"]:
         return "Ben"
-    else:
-        return None
+    return None
