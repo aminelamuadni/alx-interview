@@ -11,14 +11,11 @@ def sieve_of_eratosthenes(max_n):
     Generate list of primes up to max_n using the Sieve of Eratosthenes.
     """
     is_prime = [True] * (max_n + 1)
-    p = 2
-    while (p * p <= max_n):
+    for p in range(2, int(max_n ** 0.5) + 1):
         if is_prime[p]:
             for i in range(p * p, max_n + 1, p):
                 is_prime[i] = False
-        p += 1
-    primes = [p for p in range(2, max_n + 1) if is_prime[p]]
-    return primes
+    return [p for p in range(2, max_n + 1) if is_prime[p]]
 
 
 def simulate_round(n, primes):
